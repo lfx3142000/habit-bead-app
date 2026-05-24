@@ -26,20 +26,23 @@ Habit Beads is now a working Android/Compose prototype on the `ci-validate-build
 - [x] Reset test data action
 - [x] Move tracker UI out of MainActivity.kt into HabitBeadsApp.kt
 - [x] Reduce MainActivity.kt to app entry point only
+- [x] Split models/constants into Models.kt
+- [x] Split date helper into DateHelpers.kt
+- [x] Split SharedPreferences storage into HabitStorage.kt
 
 ## Current implementation notes
 
 - Storage currently uses SharedPreferences for fast prototype validation.
 - Habit storage supports the old 4-field saved format and the new 5-field title/subtitle format.
 - Room/database migration is intentionally deferred until the UI behavior is stable.
-- MainActivity.kt is now small, but HabitBeadsApp.kt still contains UI, models, and storage helpers and needs further splitting.
+- MainActivity.kt is now small, and HabitBeadsApp.kt is now focused on Compose UI, though it can still be split further into component files later.
 
 ## Next tasks
 
-- [ ] Check latest GitHub Actions build after title/subtitle update
+- [ ] Check latest GitHub Actions build after model/storage/date split
 - [ ] Download and install latest APK for manual phone testing
 - [ ] Gather UI feedback from phone test
-- [ ] Split HabitBeadsApp.kt further into UI components, models, date helpers, and storage helpers
+- [ ] Split HabitBeadsApp.kt further into UI component files if needed
 - [ ] Add basic accessibility descriptions for cells and habit controls
 - [ ] Add app icon and visual theme polish
 - [ ] Replace SharedPreferences with Room entities, DAOs, database, repository, and ViewModel
