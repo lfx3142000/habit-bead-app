@@ -7,6 +7,7 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -34,6 +35,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
@@ -45,6 +47,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.input.pointer.consume
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -52,6 +56,9 @@ import androidx.compose.ui.unit.dp
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
+
+private val CellSize = 48.dp
+private val HabitColumnWidth = 180.dp
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -118,7 +125,7 @@ private fun HabitTrackerScreen() {
         ) {
             Column {
                 Text("Habit Beads", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                Text("Tap to add progress. Long-press to subtract. Saved locally.", style = MaterialTheme.typography.bodySmall)
+                Text("Tap beads to log. Tap a habit title to edit. Long-press and drag a title to reorder.", style = MaterialTheme.typography.bodySmall)
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(onClick = { showResetDialog = true }) { Text("Reset") }
@@ -129,7 +136,7 @@ private fun HabitTrackerScreen() {
         Spacer(modifier = Modifier.height(12.dp))
 
         Row(modifier = Modifier.fillMaxSize()) {
-            Column(modifier = Modifier.width(188.dp)) {
+            Column(modifier = Modifier.width(HabitColumnWidth)) {
                 Spacer(modifier = Modifier.height(42.dp))
                 habits.forEachIndexed { index, habit ->
                     HabitNameCell(
@@ -155,7 +162,6 @@ private fun HabitTrackerScreen() {
                                 val count = counts[key] ?: 0
                                 BeadCell(
                                     count = count,
-                                    target = habit.target,
                                     color = habit.color,
                                     isToday = day.isToday,
                                     onIncrement = {
@@ -182,12 +188,12 @@ private fun HabitTrackerScreen() {
             initialHabit = null,
             confirmText = "Add",
             onDismiss = { showAddDialog = false },
-            onConfirm = { name, target, color ->
+            onConfirm = { name, color ->
                 val trimmed = name.trim()
                 if (trimmed.isNotEmpty()) {
                     val id = nextHabitId
                     nextHabitId += 1
-                    habits.add(Habit(id, trimmed, color, target.coerceIn(1, 9)))
+                    habits.add(Habit(id, trimmed, color, target = 1))
                     saveAll()
                 }
                 showAddDialog = false
@@ -201,12 +207,12 @@ private fun HabitTrackerScreen() {
             initialHabit = habit,
             confirmText = "Save",
             onDismiss = { habitToEdit = null },
-            onConfirm = { name, target, color ->
+            onConfirm = { name, color ->
                 val trimmed = name.trim()
                 if (trimmed.isNotEmpty()) {
                     val index = habits.indexOfFirst { it.id == habit.id }
                     if (index >= 0) {
-                        habits[index] = habit.copy(name = trimmed, target = target.coerceIn(1, 9), color = color)
+                        habits[index] = habit.copy(name = trimmed, color = color)
                         saveAll()
                     }
                 }
@@ -219,7 +225,7 @@ private fun HabitTrackerScreen() {
         AlertDialog(
             onDismissRequest = { habitToDelete = null },
             title = { Text("Delete habit?") },
-            text = { Text("Delete ${habit.name} and its saved bead counts? This cannot be undone.") },
+            text = { Text("Delete ${habit.name} and its saved bead history? This cannot be undone.") },
             confirmButton = {
                 TextButton(onClick = {
                     deleteHabit(habit)
@@ -234,13 +240,14 @@ private fun HabitTrackerScreen() {
         AlertDialog(
             onDismissRequest = { showResetDialog = false },
             title = { Text("Reset all data?") },
-            text = { Text("This will restore the sample habits and delete all saved bead counts.") },
+            text = { Text("This will restore the sample habits and delete all saved bead history.") },
             confirmButton = { TextButton(onClick = { resetAllData(); showResetDialog = false }) { Text("Reset") } },
             dismissButton = { OutlinedButton(onClick = { showResetDialog = false }) { Text("Cancel") } }
         )
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun HabitNameCell(
     habit: Habit,
@@ -251,19 +258,47 @@ private fun HabitNameCell(
     onMoveUp: () -> Unit,
     onMoveDown: () -> Unit
 ) {
-    Column(modifier = Modifier.height(64.dp).fillMaxWidth().padding(end = 8.dp), verticalArrangement = Arrangement.Center) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(modifier = Modifier.size(12.dp).clip(CircleShape).background(habit.color))
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(habit.name, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-            Text("/${habit.target}", style = MaterialTheme.typography.labelSmall)
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onClick = onEdit, modifier = Modifier.height(28.dp)) { Text("Edit") }
-            TextButton(onClick = onMoveUp, enabled = canMoveUp, modifier = Modifier.height(28.dp)) { Text("↑") }
-            TextButton(onClick = onMoveDown, enabled = canMoveDown, modifier = Modifier.height(28.dp)) { Text("↓") }
-            TextButton(onClick = onDelete, modifier = Modifier.height(28.dp)) { Text("Del") }
-        }
+    var dragDistance by remember { mutableFloatStateOf(0f) }
+
+    Row(
+        modifier = Modifier
+            .height(CellSize)
+            .fillMaxWidth()
+            .padding(end = 8.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
+            .pointerInput(habit.id, canMoveUp, canMoveDown) {
+                detectDragGesturesAfterLongPress(
+                    onDragStart = { dragDistance = 0f },
+                    onDragEnd = { dragDistance = 0f },
+                    onDragCancel = { dragDistance = 0f },
+                    onDrag = { change, dragAmount ->
+                        change.consume()
+                        dragDistance += dragAmount.y
+                        if (dragDistance > 34f && canMoveDown) {
+                            onMoveDown()
+                            dragDistance = 0f
+                        } else if (dragDistance < -34f && canMoveUp) {
+                            onMoveUp()
+                            dragDistance = 0f
+                        }
+                    }
+                )
+            }
+            .combinedClickable(onClick = onEdit),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Spacer(modifier = Modifier.width(8.dp))
+        Box(modifier = Modifier.size(12.dp).clip(CircleShape).background(habit.color))
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            habit.name,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.weight(1f)
+        )
+        TextButton(onClick = onDelete, modifier = Modifier.height(36.dp)) { Text("×") }
     }
 }
 
@@ -271,7 +306,7 @@ private fun HabitNameCell(
 private fun DayHeader(day: DayInfo) {
     val background = if (day.isToday) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
     Column(
-        modifier = Modifier.width(46.dp).height(42.dp).padding(3.dp).clip(RoundedCornerShape(10.dp)).background(background),
+        modifier = Modifier.width(CellSize).height(42.dp).padding(3.dp).clip(RoundedCornerShape(10.dp)).background(background),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
@@ -282,14 +317,18 @@ private fun DayHeader(day: DayInfo) {
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun BeadCell(count: Int, target: Int, color: Color, isToday: Boolean, onIncrement: () -> Unit, onDecrement: () -> Unit) {
+private fun BeadCell(count: Int, color: Color, isToday: Boolean, onIncrement: () -> Unit, onDecrement: () -> Unit) {
     val background = when {
         isToday -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
-        count >= target && count > 0 -> color.copy(alpha = 0.12f)
+        count > 0 -> color.copy(alpha = 0.12f)
         else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f)
     }
     Box(
-        modifier = Modifier.width(46.dp).height(64.dp).padding(3.dp).clip(RoundedCornerShape(12.dp)).background(background)
+        modifier = Modifier
+            .size(CellSize)
+            .padding(3.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(background)
             .combinedClickable(onClick = onIncrement, onLongClick = onDecrement),
         contentAlignment = Alignment.Center
     ) { BeadCluster(count, color) }
@@ -323,10 +362,9 @@ private fun HabitEditorDialog(
     initialHabit: Habit?,
     confirmText: String,
     onDismiss: () -> Unit,
-    onConfirm: (String, Int, Color) -> Unit
+    onConfirm: (String, Color) -> Unit
 ) {
     var habitName by remember { mutableStateOf(initialHabit?.name ?: "") }
-    var target by remember { mutableIntStateOf(initialHabit?.target ?: 1) }
     var colorIndex by remember { mutableIntStateOf(habitColors.indexOf(initialHabit?.color).takeIf { it >= 0 } ?: 0) }
 
     AlertDialog(
@@ -340,11 +378,6 @@ private fun HabitEditorDialog(
                     singleLine = true,
                     label = { Text("Habit name") }
                 )
-                Text("Daily target: $target", style = MaterialTheme.typography.bodyMedium)
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    OutlinedButton(onClick = { target = (target - 1).coerceAtLeast(1) }) { Text("−") }
-                    OutlinedButton(onClick = { target = (target + 1).coerceAtMost(9) }) { Text("+") }
-                }
                 Text("Color", style = MaterialTheme.typography.bodyMedium)
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     habitColors.forEachIndexed { index, color ->
@@ -363,7 +396,7 @@ private fun HabitEditorDialog(
                 }
             }
         },
-        confirmButton = { TextButton(onClick = { onConfirm(habitName, target, habitColors[colorIndex]) }) { Text(confirmText) } },
+        confirmButton = { TextButton(onClick = { onConfirm(habitName, habitColors[colorIndex]) }) { Text(confirmText) } },
         dismissButton = { OutlinedButton(onClick = onDismiss) { Text("Cancel") } }
     )
 }
@@ -412,7 +445,7 @@ private fun saveCounts(context: Context, counts: Map<String, Int>) {
 private fun prefs(context: Context) = context.getSharedPreferences("habit_beads", Context.MODE_PRIVATE)
 
 private fun defaultHabits() = listOf(
-    Habit(1, "Water", Color(0xFF277DA1), target = 8),
+    Habit(1, "Water", Color(0xFF277DA1), target = 1),
     Habit(2, "Stretch", Color(0xFF2A9D8F), target = 1),
     Habit(3, "Read", Color(0xFFB56576), target = 1)
 )
