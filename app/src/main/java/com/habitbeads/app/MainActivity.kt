@@ -1,5 +1,6 @@
 package com.habitbeads.app
 
+import android.content.Context
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -43,6 +44,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -53,67 +56,45 @@ import java.util.Locale
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent {
-            HabitBeadsApp()
-        }
+        setContent { HabitBeadsApp() }
     }
 }
 
-private data class Habit(
-    val id: Int,
-    val name: String,
-    val color: Color,
-    val target: Int = 1
-)
+private data class Habit(val id: Int, val name: String, val color: Color, val target: Int = 1)
 
 @Composable
 private fun HabitBeadsApp() {
     MaterialTheme {
-        Surface(modifier = Modifier.fillMaxSize()) {
-            HabitTrackerScreen()
-        }
+        Surface(modifier = Modifier.fillMaxSize()) { HabitTrackerScreen() }
     }
 }
 
 @Composable
 private fun HabitTrackerScreen() {
-    var nextHabitId by remember { mutableIntStateOf(4) }
+    val context = LocalContext.current
+    var nextHabitId by remember { mutableIntStateOf(loadNextHabitId(context)) }
     var showAddDialog by remember { mutableStateOf(false) }
-    val habits = remember {
-        mutableStateListOf(
-            Habit(1, "Water", Color(0xFF277DA1), target = 8),
-            Habit(2, "Stretch", Color(0xFF2A9D8F), target = 1),
-            Habit(3, "Read", Color(0xFFB56576), target = 1)
-        )
-    }
-    val counts = remember { mutableStateMapOf<String, Int>() }
+    val habits = remember { mutableStateListOf<Habit>().apply { addAll(loadHabits(context)) } }
+    val counts = remember { mutableStateMapOf<String, Int>().apply { putAll(loadCounts(context)) } }
     val days = remember { recentDays() }
     val horizontalScrollState = rememberScrollState()
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(12.dp)
-    ) {
+    fun saveAll() {
+        saveHabits(context, habits, nextHabitId)
+        saveCounts(context, counts)
+    }
+
+    Column(modifier = Modifier.fillMaxSize().padding(12.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Column {
-                Text(
-                    text = "Habit Beads",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = "Tap a bead to add progress. Long-press to subtract.",
-                    style = MaterialTheme.typography.bodySmall
-                )
+                Text("Habit Beads", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                Text("Tap to add progress. Long-press to subtract. Saved locally.", style = MaterialTheme.typography.bodySmall)
             }
-            Button(onClick = { showAddDialog = true }) {
-                Text("Add habit")
-            }
+            Button(onClick = { showAddDialog = true }) { Text("Add habit") }
         }
 
         Spacer(modifier = Modifier.height(12.dp))
@@ -121,21 +102,11 @@ private fun HabitTrackerScreen() {
         Row(modifier = Modifier.fillMaxSize()) {
             Column(modifier = Modifier.width(132.dp)) {
                 Spacer(modifier = Modifier.height(42.dp))
-                habits.forEach { habit ->
-                    HabitNameCell(habit = habit)
-                }
+                habits.forEach { HabitNameCell(it) }
             }
 
-            Column(
-                modifier = Modifier
-                    .horizontalScroll(horizontalScrollState)
-                    .fillMaxHeight()
-            ) {
-                Row {
-                    days.forEach { day ->
-                        DayHeader(day = day)
-                    }
-                }
+            Column(modifier = Modifier.horizontalScroll(horizontalScrollState).fillMaxHeight()) {
+                Row { days.forEach { DayHeader(it) } }
                 LazyColumn {
                     items(habits.size) { rowIndex ->
                         val habit = habits[rowIndex]
@@ -150,10 +121,12 @@ private fun HabitTrackerScreen() {
                                     isToday = day.isToday,
                                     onIncrement = {
                                         counts[key] = (count + 1).coerceAtMost(9)
+                                        saveAll()
                                     },
                                     onDecrement = {
                                         val next = (count - 1).coerceAtLeast(0)
                                         if (next == 0) counts.remove(key) else counts[key] = next
+                                        saveAll()
                                     }
                                 )
                             }
@@ -170,14 +143,10 @@ private fun HabitTrackerScreen() {
             onAdd = { name ->
                 val trimmed = name.trim()
                 if (trimmed.isNotEmpty()) {
-                    habits.add(
-                        Habit(
-                            id = nextHabitId++,
-                            name = trimmed,
-                            color = habitColors[(nextHabitId - 1) % habitColors.size],
-                            target = 1
-                        )
-                    )
+                    val id = nextHabitId
+                    nextHabitId += 1
+                    habits.add(Habit(id, trimmed, habitColors[id % habitColors.size], target = 1))
+                    saveAll()
                 }
                 showAddDialog = false
             }
@@ -187,26 +156,10 @@ private fun HabitTrackerScreen() {
 
 @Composable
 private fun HabitNameCell(habit: Habit) {
-    Row(
-        modifier = Modifier
-            .height(48.dp)
-            .fillMaxWidth()
-            .padding(end = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            modifier = Modifier
-                .size(12.dp)
-                .clip(CircleShape)
-                .background(habit.color)
-        )
+    Row(modifier = Modifier.height(48.dp).fillMaxWidth().padding(end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(modifier = Modifier.size(12.dp).clip(CircleShape).background(habit.color))
         Spacer(modifier = Modifier.width(8.dp))
-        Text(
-            text = habit.name,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            style = MaterialTheme.typography.bodyMedium
-        )
+        Text(habit.name, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium)
     }
 }
 
@@ -214,12 +167,7 @@ private fun HabitNameCell(habit: Habit) {
 private fun DayHeader(day: DayInfo) {
     val background = if (day.isToday) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
     Column(
-        modifier = Modifier
-            .width(46.dp)
-            .height(42.dp)
-            .padding(3.dp)
-            .clip(RoundedCornerShape(10.dp))
-            .background(background),
+        modifier = Modifier.width(46.dp).height(42.dp).padding(3.dp).clip(RoundedCornerShape(10.dp)).background(background),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
@@ -230,146 +178,99 @@ private fun DayHeader(day: DayInfo) {
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun BeadCell(
-    count: Int,
-    target: Int,
-    color: Color,
-    isToday: Boolean,
-    onIncrement: () -> Unit,
-    onDecrement: () -> Unit
-) {
+private fun BeadCell(count: Int, target: Int, color: Color, isToday: Boolean, onIncrement: () -> Unit, onDecrement: () -> Unit) {
     val background = when {
         isToday -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
         count >= target && count > 0 -> color.copy(alpha = 0.12f)
         else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f)
     }
-
     Box(
-        modifier = Modifier
-            .width(46.dp)
-            .height(48.dp)
-            .padding(3.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .background(background)
-            .combinedClickable(
-                onClick = onIncrement,
-                onLongClick = onDecrement
-            ),
+        modifier = Modifier.width(46.dp).height(48.dp).padding(3.dp).clip(RoundedCornerShape(12.dp)).background(background)
+            .combinedClickable(onClick = onIncrement, onLongClick = onDecrement),
         contentAlignment = Alignment.Center
-    ) {
-        BeadCluster(count = count, color = color)
-    }
+    ) { BeadCluster(count, color) }
 }
 
 @Composable
 private fun BeadCluster(count: Int, color: Color) {
     if (count == 0) {
-        Box(
-            modifier = Modifier
-                .size(8.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.25f))
-        )
+        Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)))
         return
     }
-
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        val rows = beadRows(count)
-        rows.forEach { rowCount ->
+    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+        beadRows(count).forEach { rowCount ->
             Row(horizontalArrangement = Arrangement.Center) {
-                repeat(rowCount) {
-                    Box(
-                        modifier = Modifier
-                            .padding(1.dp)
-                            .size(7.dp)
-                            .clip(CircleShape)
-                            .background(color)
-                    )
-                }
+                repeat(rowCount) { Box(modifier = Modifier.padding(1.dp).size(7.dp).clip(CircleShape).background(color)) }
             }
         }
     }
 }
 
 private fun beadRows(count: Int): List<Int> = when (count.coerceIn(0, 9)) {
-    1 -> listOf(1)
-    2 -> listOf(2)
-    3 -> listOf(1, 2)
-    4 -> listOf(2, 2)
-    5 -> listOf(2, 1, 2)
-    6 -> listOf(3, 3)
-    7 -> listOf(2, 3, 2)
-    8 -> listOf(3, 2, 3)
-    9 -> listOf(3, 3, 3)
+    1 -> listOf(1); 2 -> listOf(2); 3 -> listOf(1, 2); 4 -> listOf(2, 2); 5 -> listOf(2, 1, 2)
+    6 -> listOf(3, 3); 7 -> listOf(2, 3, 2); 8 -> listOf(3, 2, 3); 9 -> listOf(3, 3, 3)
     else -> emptyList()
 }
 
 @Composable
-private fun AddHabitDialog(
-    onDismiss: () -> Unit,
-    onAdd: (String) -> Unit
-) {
+private fun AddHabitDialog(onDismiss: () -> Unit, onAdd: (String) -> Unit) {
     var habitName by remember { mutableStateOf("") }
-
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Add habit") },
-        text = {
-            OutlinedTextField(
-                value = habitName,
-                onValueChange = { habitName = it.take(40) },
-                singleLine = true,
-                label = { Text("Habit name") }
-            )
-        },
-        confirmButton = {
-            TextButton(onClick = { onAdd(habitName) }) {
-                Text("Add")
-            }
-        },
-        dismissButton = {
-            OutlinedButton(onClick = onDismiss) {
-                Text("Cancel")
-            }
-        }
+        text = { OutlinedTextField(value = habitName, onValueChange = { habitName = it.take(40) }, singleLine = true, label = { Text("Habit name") }) },
+        confirmButton = { TextButton(onClick = { onAdd(habitName) }) { Text("Add") } },
+        dismissButton = { OutlinedButton(onClick = onDismiss) { Text("Cancel") } }
     )
 }
 
-private data class DayInfo(
-    val dateKey: String,
-    val dayLabel: String,
-    val dateLabel: String,
-    val isToday: Boolean
-)
+private data class DayInfo(val dateKey: String, val dayLabel: String, val dateLabel: String, val isToday: Boolean)
 
 private fun recentDays(): List<DayInfo> {
     val keyFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
     val dayFormat = SimpleDateFormat("EEE", Locale.US)
     val dateFormat = SimpleDateFormat("d", Locale.US)
     val todayKey = keyFormat.format(Calendar.getInstance().time)
-
     return (13 downTo 0).map { daysAgo ->
-        val calendar = Calendar.getInstance()
-        calendar.add(Calendar.DAY_OF_YEAR, -daysAgo)
+        val calendar = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, -daysAgo) }
         val key = keyFormat.format(calendar.time)
-        DayInfo(
-            dateKey = key,
-            dayLabel = dayFormat.format(calendar.time).take(3),
-            dateLabel = dateFormat.format(calendar.time),
-            isToday = key == todayKey
-        )
+        DayInfo(key, dayFormat.format(calendar.time).take(3), dateFormat.format(calendar.time), key == todayKey)
     }
 }
 
-private val habitColors = listOf(
-    Color(0xFFE76F51),
-    Color(0xFFF4A261),
-    Color(0xFF2A9D8F),
-    Color(0xFF43AA8B),
-    Color(0xFF277DA1),
-    Color(0xFF6D597A),
-    Color(0xFFB56576)
+private fun loadHabits(context: Context): List<Habit> {
+    val raw = prefs(context).getString("habits", null) ?: return defaultHabits()
+    return raw.lines().mapNotNull { line ->
+        val parts = line.split("|")
+        if (parts.size != 4) null else Habit(parts[0].toIntOrNull() ?: return@mapNotNull null, parts[1], Color(parts[2].toIntOrNull() ?: return@mapNotNull null), parts[3].toIntOrNull() ?: 1)
+    }.ifEmpty { defaultHabits() }
+}
+
+private fun saveHabits(context: Context, habits: List<Habit>, nextId: Int) {
+    val raw = habits.joinToString("\n") { "${it.id}|${it.name.replace("|", " ").replace("\n", " ")}|${it.color.toArgb()}|${it.target}" }
+    prefs(context).edit().putString("habits", raw).putInt("nextHabitId", nextId).apply()
+}
+
+private fun loadNextHabitId(context: Context): Int = prefs(context).getInt("nextHabitId", 4)
+
+private fun loadCounts(context: Context): Map<String, Int> {
+    val raw = prefs(context).getString("counts", "") ?: ""
+    return raw.lines().mapNotNull { line ->
+        val parts = line.split("=")
+        if (parts.size == 2) parts[0] to (parts[1].toIntOrNull() ?: return@mapNotNull null) else null
+    }.toMap()
+}
+
+private fun saveCounts(context: Context, counts: Map<String, Int>) {
+    prefs(context).edit().putString("counts", counts.entries.joinToString("\n") { "${it.key}=${it.value}" }).apply()
+}
+
+private fun prefs(context: Context) = context.getSharedPreferences("habit_beads", Context.MODE_PRIVATE)
+
+private fun defaultHabits() = listOf(
+    Habit(1, "Water", Color(0xFF277DA1), target = 8),
+    Habit(2, "Stretch", Color(0xFF2A9D8F), target = 1),
+    Habit(3, "Read", Color(0xFFB56576), target = 1)
 )
+
+private val habitColors = listOf(Color(0xFFE76F51), Color(0xFFF4A261), Color(0xFF2A9D8F), Color(0xFF43AA8B), Color(0xFF277DA1), Color(0xFF6D597A), Color(0xFFB56576))
