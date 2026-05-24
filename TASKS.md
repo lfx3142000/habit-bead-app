@@ -15,9 +15,11 @@ Habit Beads is now a working Android/Compose prototype on the `ci-validate-build
 - [x] Square bead cells
 - [x] Tap bead cell to increment count, up to 9
 - [x] Long-press bead cell to decrement count
-- [x] Local persistence for habits, order, colors, and bead counts using SharedPreferences
+- [x] Local persistence for habits, order, colors, subtitles, and bead counts using SharedPreferences
 - [x] Add habit flow
 - [x] Edit habit by tapping habit title row
+- [x] Add optional subtitle field for habits
+- [x] Add longer default sample habit title/subtitle for layout testing
 - [x] Delete habit from the edit dialog with confirmation
 - [x] Reorder habits with long-press drag on grip handle
 - [x] Remove visible daily counts/targets from main grid
@@ -28,12 +30,13 @@ Habit Beads is now a working Android/Compose prototype on the `ci-validate-build
 ## Current implementation notes
 
 - Storage currently uses SharedPreferences for fast prototype validation.
+- Habit storage supports the old 4-field saved format and the new 5-field title/subtitle format.
 - Room/database migration is intentionally deferred until the UI behavior is stable.
 - MainActivity.kt is now small, but HabitBeadsApp.kt still contains UI, models, and storage helpers and needs further splitting.
 
 ## Next tasks
 
-- [ ] Check latest GitHub Actions build after first code split
+- [ ] Check latest GitHub Actions build after title/subtitle update
 - [ ] Download and install latest APK for manual phone testing
 - [ ] Gather UI feedback from phone test
 - [ ] Split HabitBeadsApp.kt further into UI components, models, date helpers, and storage helpers
