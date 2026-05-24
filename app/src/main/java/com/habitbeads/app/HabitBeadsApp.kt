@@ -53,10 +53,16 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 
-private val CellSize = 48.dp
-private val HabitColumnWidth = 180.dp
+private val CellSize = 56.dp
+private val HabitColumnWidth = 232.dp
 
-private data class Habit(val id: Int, val name: String, val color: Color, val target: Int = 1)
+private data class Habit(
+    val id: Int,
+    val name: String,
+    val subtitle: String = "",
+    val color: Color,
+    val target: Int = 1
+)
 
 @Composable
 fun HabitBeadsApp() {
@@ -176,12 +182,12 @@ private fun HabitTrackerScreen() {
             initialHabit = null,
             confirmText = "Add",
             onDismiss = { showAddDialog = false },
-            onConfirm = { name, color ->
+            onConfirm = { name, subtitle, color ->
                 val trimmed = name.trim()
                 if (trimmed.isNotEmpty()) {
                     val id = nextHabitId
                     nextHabitId += 1
-                    habits.add(Habit(id, trimmed, color, target = 1))
+                    habits.add(Habit(id, trimmed, subtitle.trim(), color, target = 1))
                     saveAll()
                 }
                 showAddDialog = false
@@ -196,12 +202,12 @@ private fun HabitTrackerScreen() {
             initialHabit = habit,
             confirmText = "Save",
             onDismiss = { habitToEdit = null },
-            onConfirm = { name, color ->
+            onConfirm = { name, subtitle, color ->
                 val trimmed = name.trim()
                 if (trimmed.isNotEmpty()) {
                     val index = habits.indexOfFirst { it.id == habit.id }
                     if (index >= 0) {
-                        habits[index] = habit.copy(name = trimmed, color = color)
+                        habits[index] = habit.copy(name = trimmed, subtitle = subtitle.trim(), color = color)
                         saveAll()
                     }
                 }
@@ -289,10 +295,10 @@ private fun HabitNameCell(
                     },
                     onDrag = { _, dragAmount ->
                         dragDistance += dragAmount.y
-                        if (dragDistance > 34f && canMoveDown) {
+                        if (dragDistance > 38f && canMoveDown) {
                             onMoveDown()
                             dragDistance = 0f
-                        } else if (dragDistance < -34f && canMoveUp) {
+                        } else if (dragDistance < -38f && canMoveUp) {
                             onMoveUp()
                             dragDistance = 0f
                         }
@@ -302,13 +308,24 @@ private fun HabitNameCell(
         )
         Box(modifier = Modifier.size(12.dp).clip(CircleShape).background(habit.color))
         Spacer(modifier = Modifier.width(8.dp))
-        Text(
-            habit.name,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.weight(1f)
-        )
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
+            Text(
+                habit.name,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium
+            )
+            if (habit.subtitle.isNotBlank()) {
+                Text(
+                    habit.subtitle,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
     }
 }
 
@@ -395,10 +412,11 @@ private fun HabitEditorDialog(
     initialHabit: Habit?,
     confirmText: String,
     onDismiss: () -> Unit,
-    onConfirm: (String, Color) -> Unit,
+    onConfirm: (String, String, Color) -> Unit,
     onRequestDelete: (() -> Unit)?
 ) {
     var habitName by remember { mutableStateOf(initialHabit?.name ?: "") }
+    var habitSubtitle by remember { mutableStateOf(initialHabit?.subtitle ?: "") }
     var colorIndex by remember { mutableIntStateOf(habitColors.indexOf(initialHabit?.color).takeIf { it >= 0 } ?: 0) }
 
     AlertDialog(
@@ -408,9 +426,15 @@ private fun HabitEditorDialog(
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 OutlinedTextField(
                     value = habitName,
-                    onValueChange = { habitName = it.take(40) },
+                    onValueChange = { habitName = it.take(60) },
                     singleLine = true,
-                    label = { Text("Habit name") }
+                    label = { Text("Habit title") }
+                )
+                OutlinedTextField(
+                    value = habitSubtitle,
+                    onValueChange = { habitSubtitle = it.take(70) },
+                    singleLine = true,
+                    label = { Text("Subtitle, optional") }
                 )
                 Text("Color", style = MaterialTheme.typography.bodyMedium)
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -433,7 +457,7 @@ private fun HabitEditorDialog(
                 }
             }
         },
-        confirmButton = { TextButton(onClick = { onConfirm(habitName, habitColors[colorIndex]) }) { Text(confirmText) } },
+        confirmButton = { TextButton(onClick = { onConfirm(habitName, habitSubtitle, habitColors[colorIndex]) }) { Text(confirmText) } },
         dismissButton = { OutlinedButton(onClick = onDismiss) { Text("Cancel") } }
     )
 }
@@ -456,12 +480,29 @@ private fun loadHabits(context: Context): List<Habit> {
     val raw = prefs(context).getString("habits", null) ?: return defaultHabits()
     return raw.lines().mapNotNull { line ->
         val parts = line.split("|")
-        if (parts.size != 4) null else Habit(parts[0].toIntOrNull() ?: return@mapNotNull null, parts[1], Color(parts[2].toIntOrNull() ?: return@mapNotNull null), parts[3].toIntOrNull() ?: 1)
+        when (parts.size) {
+            4 -> Habit(
+                id = parts[0].toIntOrNull() ?: return@mapNotNull null,
+                name = parts[1],
+                subtitle = "",
+                color = Color(parts[2].toIntOrNull() ?: return@mapNotNull null),
+                target = parts[3].toIntOrNull() ?: 1
+            )
+            5 -> Habit(
+                id = parts[0].toIntOrNull() ?: return@mapNotNull null,
+                name = parts[1],
+                subtitle = parts[2],
+                color = Color(parts[3].toIntOrNull() ?: return@mapNotNull null),
+                target = parts[4].toIntOrNull() ?: 1
+            )
+            else -> null
+        }
     }.ifEmpty { defaultHabits() }
 }
 
 private fun saveHabits(context: Context, habits: List<Habit>, nextId: Int) {
-    val raw = habits.joinToString("\n") { "${it.id}|${it.name.replace("|", " ").replace("\n", " ")}|${it.color.toArgb()}|${it.target}" }
+    fun clean(value: String) = value.replace("|", " ").replace("\n", " ").trim()
+    val raw = habits.joinToString("\n") { "${it.id}|${clean(it.name)}|${clean(it.subtitle)}|${it.color.toArgb()}|${it.target}" }
     prefs(context).edit().putString("habits", raw).putInt("nextHabitId", nextId).apply()
 }
 
@@ -482,9 +523,9 @@ private fun saveCounts(context: Context, counts: Map<String, Int>) {
 private fun prefs(context: Context) = context.getSharedPreferences("habit_beads", Context.MODE_PRIVATE)
 
 private fun defaultHabits() = listOf(
-    Habit(1, "Water", Color(0xFF277DA1), target = 1),
-    Habit(2, "Stretch", Color(0xFF2A9D8F), target = 1),
-    Habit(3, "Read", Color(0xFFB56576), target = 1)
+    Habit(1, "Morning mobility and posture reset", "Neck, shoulders, hips", Color(0xFF277DA1), target = 1),
+    Habit(2, "Stretch", "Quick daily movement", Color(0xFF2A9D8F), target = 1),
+    Habit(3, "Read", "At least a few pages", Color(0xFFB56576), target = 1)
 )
 
 private val habitColors = listOf(Color(0xFFE76F51), Color(0xFFF4A261), Color(0xFF2A9D8F), Color(0xFF43AA8B), Color(0xFF277DA1), Color(0xFF6D597A), Color(0xFFB56576))
