@@ -47,7 +47,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.input.pointer.consume
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -272,8 +271,7 @@ private fun HabitNameCell(
                     onDragStart = { dragDistance = 0f },
                     onDragEnd = { dragDistance = 0f },
                     onDragCancel = { dragDistance = 0f },
-                    onDrag = { change, dragAmount ->
-                        change.consume()
+                    onDrag = { _, dragAmount ->
                         dragDistance += dragAmount.y
                         if (dragDistance > 34f && canMoveDown) {
                             onMoveDown()
