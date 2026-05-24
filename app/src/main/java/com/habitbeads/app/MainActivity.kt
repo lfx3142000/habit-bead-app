@@ -74,6 +74,8 @@ private fun HabitTrackerScreen() {
     val context = LocalContext.current
     var nextHabitId by remember { mutableIntStateOf(loadNextHabitId(context)) }
     var showAddDialog by remember { mutableStateOf(false) }
+    var habitToEdit by remember { mutableStateOf<Habit?>(null) }
+    var habitToDelete by remember { mutableStateOf<Habit?>(null) }
     val habits = remember { mutableStateListOf<Habit>().apply { addAll(loadHabits(context)) } }
     val counts = remember { mutableStateMapOf<String, Int>().apply { putAll(loadCounts(context)) } }
     val days = remember { recentDays() }
@@ -82,6 +84,20 @@ private fun HabitTrackerScreen() {
     fun saveAll() {
         saveHabits(context, habits, nextHabitId)
         saveCounts(context, counts)
+    }
+
+    fun moveHabit(fromIndex: Int, toIndex: Int) {
+        if (fromIndex !in habits.indices || toIndex !in habits.indices) return
+        val habit = habits.removeAt(fromIndex)
+        habits.add(toIndex, habit)
+        saveAll()
+    }
+
+    fun deleteHabit(habit: Habit) {
+        habits.removeAll { it.id == habit.id }
+        val prefix = "${habit.id}:"
+        counts.keys.filter { it.startsWith(prefix) }.forEach { counts.remove(it) }
+        saveAll()
     }
 
     Column(modifier = Modifier.fillMaxSize().padding(12.dp)) {
@@ -100,9 +116,19 @@ private fun HabitTrackerScreen() {
         Spacer(modifier = Modifier.height(12.dp))
 
         Row(modifier = Modifier.fillMaxSize()) {
-            Column(modifier = Modifier.width(132.dp)) {
+            Column(modifier = Modifier.width(180.dp)) {
                 Spacer(modifier = Modifier.height(42.dp))
-                habits.forEach { HabitNameCell(it) }
+                habits.forEachIndexed { index, habit ->
+                    HabitNameCell(
+                        habit = habit,
+                        canMoveUp = index > 0,
+                        canMoveDown = index < habits.lastIndex,
+                        onEdit = { habitToEdit = habit },
+                        onDelete = { habitToDelete = habit },
+                        onMoveUp = { moveHabit(index, index - 1) },
+                        onMoveDown = { moveHabit(index, index + 1) }
+                    )
+                }
             }
 
             Column(modifier = Modifier.horizontalScroll(horizontalScrollState).fillMaxHeight()) {
@@ -138,9 +164,12 @@ private fun HabitTrackerScreen() {
     }
 
     if (showAddDialog) {
-        AddHabitDialog(
+        HabitTextDialog(
+            title = "Add habit",
+            initialName = "",
+            confirmText = "Add",
             onDismiss = { showAddDialog = false },
-            onAdd = { name ->
+            onConfirm = { name ->
                 val trimmed = name.trim()
                 if (trimmed.isNotEmpty()) {
                     val id = nextHabitId
@@ -152,14 +181,67 @@ private fun HabitTrackerScreen() {
             }
         )
     }
+
+    habitToEdit?.let { habit ->
+        HabitTextDialog(
+            title = "Edit habit",
+            initialName = habit.name,
+            confirmText = "Save",
+            onDismiss = { habitToEdit = null },
+            onConfirm = { name ->
+                val trimmed = name.trim()
+                if (trimmed.isNotEmpty()) {
+                    val index = habits.indexOfFirst { it.id == habit.id }
+                    if (index >= 0) {
+                        habits[index] = habit.copy(name = trimmed)
+                        saveAll()
+                    }
+                }
+                habitToEdit = null
+            }
+        )
+    }
+
+    habitToDelete?.let { habit ->
+        AlertDialog(
+            onDismissRequest = { habitToDelete = null },
+            title = { Text("Delete habit?") },
+            text = { Text("Delete ${habit.name} and its saved bead counts? This cannot be undone.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    deleteHabit(habit)
+                    habitToDelete = null
+                }) { Text("Delete") }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { habitToDelete = null }) { Text("Cancel") }
+            }
+        )
+    }
 }
 
 @Composable
-private fun HabitNameCell(habit: Habit) {
-    Row(modifier = Modifier.height(48.dp).fillMaxWidth().padding(end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(modifier = Modifier.size(12.dp).clip(CircleShape).background(habit.color))
-        Spacer(modifier = Modifier.width(8.dp))
-        Text(habit.name, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium)
+private fun HabitNameCell(
+    habit: Habit,
+    canMoveUp: Boolean,
+    canMoveDown: Boolean,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+    onMoveUp: () -> Unit,
+    onMoveDown: () -> Unit
+) {
+    Column(modifier = Modifier.height(64.dp).fillMaxWidth().padding(end = 8.dp), verticalArrangement = Arrangement.Center) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(modifier = Modifier.size(12.dp).clip(CircleShape).background(habit.color))
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(habit.name, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
+            TextButton(onClick = onEdit, modifier = Modifier.height(28.dp)) { Text("Edit") }
+            TextButton(onClick = onMoveUp, enabled = canMoveUp, modifier = Modifier.height(28.dp)) { Text("↑") }
+            TextButton(onClick = onMoveDown, enabled = canMoveDown, modifier = Modifier.height(28.dp)) { Text("↓") }
+            TextButton(onClick = onDelete, modifier = Modifier.height(28.dp)) { Text("Del") }
+        }
     }
 }
 
@@ -185,7 +267,7 @@ private fun BeadCell(count: Int, target: Int, color: Color, isToday: Boolean, on
         else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f)
     }
     Box(
-        modifier = Modifier.width(46.dp).height(48.dp).padding(3.dp).clip(RoundedCornerShape(12.dp)).background(background)
+        modifier = Modifier.width(46.dp).height(64.dp).padding(3.dp).clip(RoundedCornerShape(12.dp)).background(background)
             .combinedClickable(onClick = onIncrement, onLongClick = onDecrement),
         contentAlignment = Alignment.Center
     ) { BeadCluster(count, color) }
@@ -213,13 +295,13 @@ private fun beadRows(count: Int): List<Int> = when (count.coerceIn(0, 9)) {
 }
 
 @Composable
-private fun AddHabitDialog(onDismiss: () -> Unit, onAdd: (String) -> Unit) {
-    var habitName by remember { mutableStateOf("") }
+private fun HabitTextDialog(title: String, initialName: String, confirmText: String, onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
+    var habitName by remember { mutableStateOf(initialName) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Add habit") },
+        title = { Text(title) },
         text = { OutlinedTextField(value = habitName, onValueChange = { habitName = it.take(40) }, singleLine = true, label = { Text("Habit name") }) },
-        confirmButton = { TextButton(onClick = { onAdd(habitName) }) { Text("Add") } },
+        confirmButton = { TextButton(onClick = { onConfirm(habitName) }) { Text(confirmText) } },
         dismissButton = { OutlinedButton(onClick = onDismiss) { Text("Cancel") } }
     )
 }
