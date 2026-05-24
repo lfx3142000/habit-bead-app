@@ -316,6 +316,7 @@ private fun beadRows(count: Int): List<Int> = when (count.coerceIn(0, 9)) {
     else -> emptyList()
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun HabitEditorDialog(
     title: String,
