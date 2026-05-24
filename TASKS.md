@@ -29,6 +29,7 @@ Habit Beads is now a working Android/Compose prototype on the `ci-validate-build
 - [x] Split models/constants into Models.kt
 - [x] Split date helper into DateHelpers.kt
 - [x] Split SharedPreferences storage into HabitStorage.kt
+- [x] Add basic accessibility descriptions for habit rows, drag grips, day headers, bead cells, and color choices
 
 ## Current implementation notes
 
@@ -39,11 +40,10 @@ Habit Beads is now a working Android/Compose prototype on the `ci-validate-build
 
 ## Next tasks
 
-- [ ] Check latest GitHub Actions build after model/storage/date split
+- [ ] Check latest GitHub Actions build after accessibility labels
 - [ ] Download and install latest APK for manual phone testing
 - [ ] Gather UI feedback from phone test
 - [ ] Split HabitBeadsApp.kt further into UI component files if needed
-- [ ] Add basic accessibility descriptions for cells and habit controls
 - [ ] Add app icon and visual theme polish
 - [ ] Replace SharedPreferences with Room entities, DAOs, database, repository, and ViewModel
 - [ ] Add home-screen widget support after core app is stable
