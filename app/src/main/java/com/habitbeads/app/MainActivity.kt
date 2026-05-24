@@ -74,6 +74,7 @@ private fun HabitTrackerScreen() {
     val context = LocalContext.current
     var nextHabitId by remember { mutableIntStateOf(loadNextHabitId(context)) }
     var showAddDialog by remember { mutableStateOf(false) }
+    var showResetDialog by remember { mutableStateOf(false) }
     var habitToEdit by remember { mutableStateOf<Habit?>(null) }
     var habitToDelete by remember { mutableStateOf<Habit?>(null) }
     val habits = remember { mutableStateListOf<Habit>().apply { addAll(loadHabits(context)) } }
@@ -100,6 +101,15 @@ private fun HabitTrackerScreen() {
         saveAll()
     }
 
+    fun resetAllData() {
+        habits.clear()
+        habits.addAll(defaultHabits())
+        counts.clear()
+        nextHabitId = 4
+        prefs(context).edit().clear().apply()
+        saveAll()
+    }
+
     Column(modifier = Modifier.fillMaxSize().padding(12.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -110,13 +120,16 @@ private fun HabitTrackerScreen() {
                 Text("Habit Beads", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                 Text("Tap to add progress. Long-press to subtract. Saved locally.", style = MaterialTheme.typography.bodySmall)
             }
-            Button(onClick = { showAddDialog = true }) { Text("Add habit") }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = { showResetDialog = true }) { Text("Reset") }
+                Button(onClick = { showAddDialog = true }) { Text("Add habit") }
+            }
         }
 
         Spacer(modifier = Modifier.height(12.dp))
 
         Row(modifier = Modifier.fillMaxSize()) {
-            Column(modifier = Modifier.width(180.dp)) {
+            Column(modifier = Modifier.width(188.dp)) {
                 Spacer(modifier = Modifier.height(42.dp))
                 habits.forEachIndexed { index, habit ->
                     HabitNameCell(
@@ -164,17 +177,17 @@ private fun HabitTrackerScreen() {
     }
 
     if (showAddDialog) {
-        HabitTextDialog(
+        HabitEditorDialog(
             title = "Add habit",
-            initialName = "",
+            initialHabit = null,
             confirmText = "Add",
             onDismiss = { showAddDialog = false },
-            onConfirm = { name ->
+            onConfirm = { name, target, color ->
                 val trimmed = name.trim()
                 if (trimmed.isNotEmpty()) {
                     val id = nextHabitId
                     nextHabitId += 1
-                    habits.add(Habit(id, trimmed, habitColors[id % habitColors.size], target = 1))
+                    habits.add(Habit(id, trimmed, color, target.coerceIn(1, 9)))
                     saveAll()
                 }
                 showAddDialog = false
@@ -183,17 +196,17 @@ private fun HabitTrackerScreen() {
     }
 
     habitToEdit?.let { habit ->
-        HabitTextDialog(
+        HabitEditorDialog(
             title = "Edit habit",
-            initialName = habit.name,
+            initialHabit = habit,
             confirmText = "Save",
             onDismiss = { habitToEdit = null },
-            onConfirm = { name ->
+            onConfirm = { name, target, color ->
                 val trimmed = name.trim()
                 if (trimmed.isNotEmpty()) {
                     val index = habits.indexOfFirst { it.id == habit.id }
                     if (index >= 0) {
-                        habits[index] = habit.copy(name = trimmed)
+                        habits[index] = habit.copy(name = trimmed, target = target.coerceIn(1, 9), color = color)
                         saveAll()
                     }
                 }
@@ -213,9 +226,17 @@ private fun HabitTrackerScreen() {
                     habitToDelete = null
                 }) { Text("Delete") }
             },
-            dismissButton = {
-                OutlinedButton(onClick = { habitToDelete = null }) { Text("Cancel") }
-            }
+            dismissButton = { OutlinedButton(onClick = { habitToDelete = null }) { Text("Cancel") } }
+        )
+    }
+
+    if (showResetDialog) {
+        AlertDialog(
+            onDismissRequest = { showResetDialog = false },
+            title = { Text("Reset all data?") },
+            text = { Text("This will restore the sample habits and delete all saved bead counts.") },
+            confirmButton = { TextButton(onClick = { resetAllData(); showResetDialog = false }) { Text("Reset") } },
+            dismissButton = { OutlinedButton(onClick = { showResetDialog = false }) { Text("Cancel") } }
         )
     }
 }
@@ -235,6 +256,7 @@ private fun HabitNameCell(
             Box(modifier = Modifier.size(12.dp).clip(CircleShape).background(habit.color))
             Spacer(modifier = Modifier.width(8.dp))
             Text(habit.name, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+            Text("/${habit.target}", style = MaterialTheme.typography.labelSmall)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
             TextButton(onClick = onEdit, modifier = Modifier.height(28.dp)) { Text("Edit") }
@@ -295,13 +317,52 @@ private fun beadRows(count: Int): List<Int> = when (count.coerceIn(0, 9)) {
 }
 
 @Composable
-private fun HabitTextDialog(title: String, initialName: String, confirmText: String, onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
-    var habitName by remember { mutableStateOf(initialName) }
+private fun HabitEditorDialog(
+    title: String,
+    initialHabit: Habit?,
+    confirmText: String,
+    onDismiss: () -> Unit,
+    onConfirm: (String, Int, Color) -> Unit
+) {
+    var habitName by remember { mutableStateOf(initialHabit?.name ?: "") }
+    var target by remember { mutableIntStateOf(initialHabit?.target ?: 1) }
+    var colorIndex by remember { mutableIntStateOf(habitColors.indexOf(initialHabit?.color).takeIf { it >= 0 } ?: 0) }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
-        text = { OutlinedTextField(value = habitName, onValueChange = { habitName = it.take(40) }, singleLine = true, label = { Text("Habit name") }) },
-        confirmButton = { TextButton(onClick = { onConfirm(habitName) }) { Text(confirmText) } },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedTextField(
+                    value = habitName,
+                    onValueChange = { habitName = it.take(40) },
+                    singleLine = true,
+                    label = { Text("Habit name") }
+                )
+                Text("Daily target: $target", style = MaterialTheme.typography.bodyMedium)
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedButton(onClick = { target = (target - 1).coerceAtLeast(1) }) { Text("−") }
+                    OutlinedButton(onClick = { target = (target + 1).coerceAtMost(9) }) { Text("+") }
+                }
+                Text("Color", style = MaterialTheme.typography.bodyMedium)
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    habitColors.forEachIndexed { index, color ->
+                        val borderColor = if (index == colorIndex) MaterialTheme.colorScheme.onSurface else color
+                        Box(
+                            modifier = Modifier
+                                .size(if (index == colorIndex) 30.dp else 26.dp)
+                                .clip(CircleShape)
+                                .background(borderColor)
+                                .padding(3.dp)
+                                .clip(CircleShape)
+                                .background(color)
+                                .combinedClickable(onClick = { colorIndex = index })
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = { onConfirm(habitName, target, habitColors[colorIndex]) }) { Text(confirmText) } },
         dismissButton = { OutlinedButton(onClick = onDismiss) { Text("Cancel") } }
     )
 }
