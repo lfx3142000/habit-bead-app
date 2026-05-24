@@ -143,7 +143,6 @@ private fun HabitTrackerScreen() {
                         canMoveUp = index > 0,
                         canMoveDown = index < habits.lastIndex,
                         onEdit = { habitToEdit = habit },
-                        onDelete = { habitToDelete = habit },
                         onMoveUp = { moveHabit(index, index - 1) },
                         onMoveDown = { moveHabit(index, index + 1) }
                     )
@@ -196,7 +195,8 @@ private fun HabitTrackerScreen() {
                     saveAll()
                 }
                 showAddDialog = false
-            }
+            },
+            onRequestDelete = null
         )
     }
 
@@ -216,6 +216,10 @@ private fun HabitTrackerScreen() {
                     }
                 }
                 habitToEdit = null
+            },
+            onRequestDelete = {
+                habitToEdit = null
+                habitToDelete = habit
             }
         )
     }
@@ -253,7 +257,6 @@ private fun HabitNameCell(
     canMoveUp: Boolean,
     canMoveDown: Boolean,
     onEdit: () -> Unit,
-    onDelete: () -> Unit,
     onMoveUp: () -> Unit,
     onMoveDown: () -> Unit
 ) {
@@ -320,7 +323,6 @@ private fun HabitNameCell(
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.weight(1f)
         )
-        TextButton(onClick = onDelete, modifier = Modifier.height(36.dp)) { Text("×") }
     }
 }
 
@@ -407,7 +409,8 @@ private fun HabitEditorDialog(
     initialHabit: Habit?,
     confirmText: String,
     onDismiss: () -> Unit,
-    onConfirm: (String, Color) -> Unit
+    onConfirm: (String, Color) -> Unit,
+    onRequestDelete: (() -> Unit)?
 ) {
     var habitName by remember { mutableStateOf(initialHabit?.name ?: "") }
     var colorIndex by remember { mutableIntStateOf(habitColors.indexOf(initialHabit?.color).takeIf { it >= 0 } ?: 0) }
@@ -438,6 +441,9 @@ private fun HabitEditorDialog(
                                 .combinedClickable(onClick = { colorIndex = index })
                         )
                     }
+                }
+                if (onRequestDelete != null) {
+                    TextButton(onClick = onRequestDelete) { Text("Delete habit") }
                 }
             }
         },
