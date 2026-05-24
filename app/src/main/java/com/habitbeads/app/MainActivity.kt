@@ -124,7 +124,7 @@ private fun HabitTrackerScreen() {
         ) {
             Column {
                 Text("Habit Beads", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                Text("Tap beads to log. Tap a habit title to edit. Long-press and drag a title to reorder.", style = MaterialTheme.typography.bodySmall)
+                Text("Tap beads to log. Tap a habit title to edit. Long-press and drag the grip to reorder.", style = MaterialTheme.typography.bodySmall)
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(onClick = { showResetDialog = true }) { Text("Reset") }
@@ -258,6 +258,13 @@ private fun HabitNameCell(
     onMoveDown: () -> Unit
 ) {
     var dragDistance by remember { mutableFloatStateOf(0f) }
+    var isDragging by remember { mutableStateOf(false) }
+    var didDrag by remember { mutableStateOf(false) }
+    val rowBackground = if (isDragging) {
+        habit.color.copy(alpha = 0.18f)
+    } else {
+        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+    }
 
     Row(
         modifier = Modifier
@@ -265,12 +272,32 @@ private fun HabitNameCell(
             .fillMaxWidth()
             .padding(end = 8.dp)
             .clip(RoundedCornerShape(12.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
-            .pointerInput(habit.id, canMoveUp, canMoveDown) {
+            .background(rowBackground)
+            .combinedClickable(onClick = {
+                if (didDrag) {
+                    didDrag = false
+                } else {
+                    onEdit()
+                }
+            }),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        DragGrip(
+            modifier = Modifier.pointerInput(habit.id, canMoveUp, canMoveDown) {
                 detectDragGesturesAfterLongPress(
-                    onDragStart = { dragDistance = 0f },
-                    onDragEnd = { dragDistance = 0f },
-                    onDragCancel = { dragDistance = 0f },
+                    onDragStart = {
+                        dragDistance = 0f
+                        isDragging = true
+                        didDrag = true
+                    },
+                    onDragEnd = {
+                        dragDistance = 0f
+                        isDragging = false
+                    },
+                    onDragCancel = {
+                        dragDistance = 0f
+                        isDragging = false
+                    },
                     onDrag = { _, dragAmount ->
                         dragDistance += dragAmount.y
                         if (dragDistance > 34f && canMoveDown) {
@@ -283,10 +310,7 @@ private fun HabitNameCell(
                     }
                 )
             }
-            .combinedClickable(onClick = onEdit),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Spacer(modifier = Modifier.width(8.dp))
+        )
         Box(modifier = Modifier.size(12.dp).clip(CircleShape).background(habit.color))
         Spacer(modifier = Modifier.width(8.dp))
         Text(
@@ -297,6 +321,29 @@ private fun HabitNameCell(
             modifier = Modifier.weight(1f)
         )
         TextButton(onClick = onDelete, modifier = Modifier.height(36.dp)) { Text("×") }
+    }
+}
+
+@Composable
+private fun DragGrip(modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier.width(28.dp).height(CellSize),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        repeat(3) {
+            Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                repeat(2) {
+                    Box(
+                        modifier = Modifier
+                            .size(3.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.75f))
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(3.dp))
+        }
     }
 }
 
