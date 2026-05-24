@@ -1,6 +1,5 @@
 package com.habitbeads.app
 
-import android.content.Context
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -43,26 +42,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import java.text.SimpleDateFormat
-import java.util.Calendar
-import java.util.Locale
-
-private val CellSize = 56.dp
-private val HabitColumnWidth = 232.dp
-
-private data class Habit(
-    val id: Int,
-    val name: String,
-    val subtitle: String = "",
-    val color: Color,
-    val target: Int = 1
-)
 
 @Composable
 fun HabitBeadsApp() {
@@ -108,7 +92,7 @@ private fun HabitTrackerScreen() {
         habits.addAll(defaultHabits())
         counts.clear()
         nextHabitId = 4
-        prefs(context).edit().clear().apply()
+        clearHabitStorage(context)
         saveAll()
     }
 
@@ -461,71 +445,3 @@ private fun HabitEditorDialog(
         dismissButton = { OutlinedButton(onClick = onDismiss) { Text("Cancel") } }
     )
 }
-
-private data class DayInfo(val dateKey: String, val dayLabel: String, val dateLabel: String, val isToday: Boolean)
-
-private fun recentDays(): List<DayInfo> {
-    val keyFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-    val dayFormat = SimpleDateFormat("EEE", Locale.US)
-    val dateFormat = SimpleDateFormat("d", Locale.US)
-    val todayKey = keyFormat.format(Calendar.getInstance().time)
-    return (13 downTo 0).map { daysAgo ->
-        val calendar = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, -daysAgo) }
-        val key = keyFormat.format(calendar.time)
-        DayInfo(key, dayFormat.format(calendar.time).take(3), dateFormat.format(calendar.time), key == todayKey)
-    }
-}
-
-private fun loadHabits(context: Context): List<Habit> {
-    val raw = prefs(context).getString("habits", null) ?: return defaultHabits()
-    return raw.lines().mapNotNull { line ->
-        val parts = line.split("|")
-        when (parts.size) {
-            4 -> Habit(
-                id = parts[0].toIntOrNull() ?: return@mapNotNull null,
-                name = parts[1],
-                subtitle = "",
-                color = Color(parts[2].toIntOrNull() ?: return@mapNotNull null),
-                target = parts[3].toIntOrNull() ?: 1
-            )
-            5 -> Habit(
-                id = parts[0].toIntOrNull() ?: return@mapNotNull null,
-                name = parts[1],
-                subtitle = parts[2],
-                color = Color(parts[3].toIntOrNull() ?: return@mapNotNull null),
-                target = parts[4].toIntOrNull() ?: 1
-            )
-            else -> null
-        }
-    }.ifEmpty { defaultHabits() }
-}
-
-private fun saveHabits(context: Context, habits: List<Habit>, nextId: Int) {
-    fun clean(value: String) = value.replace("|", " ").replace("\n", " ").trim()
-    val raw = habits.joinToString("\n") { "${it.id}|${clean(it.name)}|${clean(it.subtitle)}|${it.color.toArgb()}|${it.target}" }
-    prefs(context).edit().putString("habits", raw).putInt("nextHabitId", nextId).apply()
-}
-
-private fun loadNextHabitId(context: Context): Int = prefs(context).getInt("nextHabitId", 4)
-
-private fun loadCounts(context: Context): Map<String, Int> {
-    val raw = prefs(context).getString("counts", "") ?: ""
-    return raw.lines().mapNotNull { line ->
-        val parts = line.split("=")
-        if (parts.size == 2) parts[0] to (parts[1].toIntOrNull() ?: return@mapNotNull null) else null
-    }.toMap()
-}
-
-private fun saveCounts(context: Context, counts: Map<String, Int>) {
-    prefs(context).edit().putString("counts", counts.entries.joinToString("\n") { "${it.key}=${it.value}" }).apply()
-}
-
-private fun prefs(context: Context) = context.getSharedPreferences("habit_beads", Context.MODE_PRIVATE)
-
-private fun defaultHabits() = listOf(
-    Habit(1, "Morning mobility and posture reset", "Neck, shoulders, hips", Color(0xFF277DA1), target = 1),
-    Habit(2, "Stretch", "Quick daily movement", Color(0xFF2A9D8F), target = 1),
-    Habit(3, "Read", "At least a few pages", Color(0xFFB56576), target = 1)
-)
-
-private val habitColors = listOf(Color(0xFFE76F51), Color(0xFFF4A261), Color(0xFF2A9D8F), Color(0xFF43AA8B), Color(0xFF277DA1), Color(0xFF6D597A), Color(0xFFB56576))
