@@ -30,6 +30,9 @@ Habit Beads is now a working Android/Compose prototype on the `ci-validate-build
 - [x] Split date helper into DateHelpers.kt
 - [x] Split SharedPreferences storage into HabitStorage.kt
 - [x] Add basic accessibility descriptions for habit rows, drag grips, day headers, bead cells, and color choices
+- [x] Add empty state when all habits are deleted
+- [x] Move reset action into Options dialog to reduce main tracker clutter
+- [x] Improve top bar balance by keeping primary action focused on Add habit
 
 ## Current implementation notes
 
@@ -40,7 +43,7 @@ Habit Beads is now a working Android/Compose prototype on the `ci-validate-build
 
 ## Next tasks
 
-- [ ] Check latest GitHub Actions build after accessibility labels
+- [ ] Check latest GitHub Actions build after empty-state/options polish
 - [ ] Download and install latest APK for manual phone testing
 - [ ] Gather UI feedback from phone test
 - [ ] Split HabitBeadsApp.kt further into UI component files if needed
