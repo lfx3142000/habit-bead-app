@@ -1,0 +1,3 @@
+<resources>
+    <style name="Theme.HabitBeads" parent="android:style/Theme.Material.Light.NoActionBar" />
+</resources>
