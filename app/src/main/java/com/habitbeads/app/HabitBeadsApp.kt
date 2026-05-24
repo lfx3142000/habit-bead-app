@@ -49,6 +49,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
@@ -64,6 +65,7 @@ private fun HabitTrackerScreen() {
     val context = LocalContext.current
     var nextHabitId by remember { mutableIntStateOf(loadNextHabitId(context)) }
     var showAddDialog by remember { mutableStateOf(false) }
+    var showOptionsDialog by remember { mutableStateOf(false) }
     var showResetDialog by remember { mutableStateOf(false) }
     var habitToEdit by remember { mutableStateOf<Habit?>(null) }
     var habitToDelete by remember { mutableStateOf<Habit?>(null) }
@@ -106,58 +108,62 @@ private fun HabitTrackerScreen() {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Column {
+            Column(modifier = Modifier.weight(1f)) {
                 Text("Habit Beads", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                 Text("Tap beads to log. Tap a habit title to edit. Long-press and drag the grip to reorder.", style = MaterialTheme.typography.bodySmall)
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = { showResetDialog = true }) { Text("Reset") }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                OutlinedButton(onClick = { showOptionsDialog = true }) { Text("Options") }
                 Button(onClick = { showAddDialog = true }) { Text("Add habit") }
             }
         }
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        Row(modifier = Modifier.fillMaxSize()) {
-            Column(modifier = Modifier.width(HabitColumnWidth)) {
-                Spacer(modifier = Modifier.height(42.dp))
-                habits.forEachIndexed { index, habit ->
-                    HabitNameCell(
-                        habit = habit,
-                        canMoveUp = index > 0,
-                        canMoveDown = index < habits.lastIndex,
-                        onEdit = { habitToEdit = habit },
-                        onMoveUp = { moveHabit(index, index - 1) },
-                        onMoveDown = { moveHabit(index, index + 1) }
-                    )
+        if (habits.isEmpty()) {
+            EmptyHabitState(onAddHabit = { showAddDialog = true })
+        } else {
+            Row(modifier = Modifier.fillMaxSize()) {
+                Column(modifier = Modifier.width(HabitColumnWidth)) {
+                    Spacer(modifier = Modifier.height(42.dp))
+                    habits.forEachIndexed { index, habit ->
+                        HabitNameCell(
+                            habit = habit,
+                            canMoveUp = index > 0,
+                            canMoveDown = index < habits.lastIndex,
+                            onEdit = { habitToEdit = habit },
+                            onMoveUp = { moveHabit(index, index - 1) },
+                            onMoveDown = { moveHabit(index, index + 1) }
+                        )
+                    }
                 }
-            }
 
-            Column(modifier = Modifier.horizontalScroll(horizontalScrollState).fillMaxHeight()) {
-                Row { days.forEach { DayHeader(it) } }
-                LazyColumn {
-                    items(habits.size) { rowIndex ->
-                        val habit = habits[rowIndex]
-                        Row {
-                            days.forEach { day ->
-                                val key = "${habit.id}:${day.dateKey}"
-                                val count = counts[key] ?: 0
-                                BeadCell(
-                                    habitName = habit.name,
-                                    day = day,
-                                    count = count,
-                                    color = habit.color,
-                                    isToday = day.isToday,
-                                    onIncrement = {
-                                        counts[key] = (count + 1).coerceAtMost(9)
-                                        saveAll()
-                                    },
-                                    onDecrement = {
-                                        val next = (count - 1).coerceAtLeast(0)
-                                        if (next == 0) counts.remove(key) else counts[key] = next
-                                        saveAll()
-                                    }
-                                )
+                Column(modifier = Modifier.horizontalScroll(horizontalScrollState).fillMaxHeight()) {
+                    Row { days.forEach { DayHeader(it) } }
+                    LazyColumn {
+                        items(habits.size) { rowIndex ->
+                            val habit = habits[rowIndex]
+                            Row {
+                                days.forEach { day ->
+                                    val key = "${habit.id}:${day.dateKey}"
+                                    val count = counts[key] ?: 0
+                                    BeadCell(
+                                        habitName = habit.name,
+                                        day = day,
+                                        count = count,
+                                        color = habit.color,
+                                        isToday = day.isToday,
+                                        onIncrement = {
+                                            counts[key] = (count + 1).coerceAtMost(9)
+                                            saveAll()
+                                        },
+                                        onDecrement = {
+                                            val next = (count - 1).coerceAtLeast(0)
+                                            if (next == 0) counts.remove(key) else counts[key] = next
+                                            saveAll()
+                                        }
+                                    )
+                                }
                             }
                         }
                     }
@@ -225,6 +231,23 @@ private fun HabitTrackerScreen() {
         )
     }
 
+    if (showOptionsDialog) {
+        AlertDialog(
+            onDismissRequest = { showOptionsDialog = false },
+            title = { Text("Options") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Debug tools are kept here so the daily tracker stays clean.", style = MaterialTheme.typography.bodySmall)
+                    OutlinedButton(onClick = {
+                        showOptionsDialog = false
+                        showResetDialog = true
+                    }) { Text("Reset sample data") }
+                }
+            },
+            confirmButton = { TextButton(onClick = { showOptionsDialog = false }) { Text("Done") } }
+        )
+    }
+
     if (showResetDialog) {
         AlertDialog(
             onDismissRequest = { showResetDialog = false },
@@ -233,6 +256,31 @@ private fun HabitTrackerScreen() {
             confirmButton = { TextButton(onClick = { resetAllData(); showResetDialog = false }) { Text("Reset") } },
             dismissButton = { OutlinedButton(onClick = { showResetDialog = false }) { Text("Cancel") } }
         )
+    }
+}
+
+@Composable
+private fun EmptyHabitState(onAddHabit: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+            .clip(RoundedCornerShape(24.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
+            .padding(24.dp)
+            .semantics { contentDescription = "No habits yet. Add a habit to start tracking." },
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text("No habits yet", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            "Add a habit to start filling your bead grid. You can edit, reorder, or delete it later.",
+            style = MaterialTheme.typography.bodyMedium,
+            textAlign = TextAlign.Center
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        Button(onClick = onAddHabit) { Text("Add first habit") }
     }
 }
 
