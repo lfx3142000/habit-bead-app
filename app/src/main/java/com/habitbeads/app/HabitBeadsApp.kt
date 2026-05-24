@@ -44,6 +44,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -139,6 +143,8 @@ private fun HabitTrackerScreen() {
                                 val key = "${habit.id}:${day.dateKey}"
                                 val count = counts[key] ?: 0
                                 BeadCell(
+                                    habitName = habit.name,
+                                    day = day,
                                     count = count,
                                     color = habit.color,
                                     isToday = day.isToday,
@@ -256,12 +262,21 @@ private fun HabitNameCell(
             .padding(end = 8.dp)
             .clip(RoundedCornerShape(12.dp))
             .background(rowBackground)
+            .semantics {
+                contentDescription = buildString {
+                    append("Habit ${habit.name}")
+                    if (habit.subtitle.isNotBlank()) append(", ${habit.subtitle}")
+                    append(". Tap to edit.")
+                }
+                role = Role.Button
+            }
             .combinedClickable(onClick = {
                 if (didDrag) didDrag = false else onEdit()
             }),
         verticalAlignment = Alignment.CenterVertically
     ) {
         DragGrip(
+            habitName = habit.name,
             modifier = Modifier.pointerInput(habit.id, canMoveUp, canMoveDown) {
                 detectDragGesturesAfterLongPress(
                     onDragStart = {
@@ -314,9 +329,12 @@ private fun HabitNameCell(
 }
 
 @Composable
-private fun DragGrip(modifier: Modifier = Modifier) {
+private fun DragGrip(habitName: String, modifier: Modifier = Modifier) {
     Column(
-        modifier = modifier.width(28.dp).height(CellSize),
+        modifier = modifier
+            .width(28.dp)
+            .height(CellSize)
+            .semantics { contentDescription = "Reorder $habitName" },
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
@@ -340,7 +358,13 @@ private fun DragGrip(modifier: Modifier = Modifier) {
 private fun DayHeader(day: DayInfo) {
     val background = if (day.isToday) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
     Column(
-        modifier = Modifier.width(CellSize).height(42.dp).padding(3.dp).clip(RoundedCornerShape(10.dp)).background(background),
+        modifier = Modifier
+            .width(CellSize)
+            .height(42.dp)
+            .padding(3.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(background)
+            .semantics { contentDescription = if (day.isToday) "Today, ${day.dayLabel} ${day.dateLabel}" else "${day.dayLabel} ${day.dateLabel}" },
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
@@ -351,7 +375,15 @@ private fun DayHeader(day: DayInfo) {
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun BeadCell(count: Int, color: Color, isToday: Boolean, onIncrement: () -> Unit, onDecrement: () -> Unit) {
+private fun BeadCell(
+    habitName: String,
+    day: DayInfo,
+    count: Int,
+    color: Color,
+    isToday: Boolean,
+    onIncrement: () -> Unit,
+    onDecrement: () -> Unit
+) {
     val background = when {
         isToday -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
         count > 0 -> color.copy(alpha = 0.12f)
@@ -363,6 +395,10 @@ private fun BeadCell(count: Int, color: Color, isToday: Boolean, onIncrement: ()
             .padding(3.dp)
             .clip(RoundedCornerShape(12.dp))
             .background(background)
+            .semantics {
+                contentDescription = "$habitName on ${day.dayLabel} ${day.dateLabel}: $count beads. Tap to add one. Long press to subtract one."
+                role = Role.Button
+            }
             .combinedClickable(onClick = onIncrement, onLongClick = onDecrement),
         contentAlignment = Alignment.Center
     ) { BeadCluster(count, color) }
@@ -432,6 +468,7 @@ private fun HabitEditorDialog(
                                 .padding(3.dp)
                                 .clip(CircleShape)
                                 .background(color)
+                                .semantics { contentDescription = "Select habit color ${index + 1}" }
                                 .combinedClickable(onClick = { colorIndex = index })
                         )
                     }
