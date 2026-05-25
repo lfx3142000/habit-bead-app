@@ -21,7 +21,9 @@ class HabitRepository(
     }
 
     suspend fun loadCounts(): Map<String, Int> {
-        return entryDao.getAllEntries().associate { "${it.habitId}:${it.dateKey}" to it.count }
+        return entryDao.getAllEntries()
+            .filter { it.count > 0 }
+            .associate { "${it.habitId}:${it.dateKey}" to it.count }
     }
 
     suspend fun addHabit(name: String, subtitle: String, color: Color, displayOrder: Int): Habit {
@@ -60,9 +62,7 @@ class HabitRepository(
     }
 
     suspend fun saveHabitOrder(habits: List<Habit>) {
-        habits.forEachIndexed { index, habit ->
-            updateHabit(habit, index)
-        }
+        habits.forEachIndexed { index, habit -> updateHabit(habit, index) }
     }
 
     suspend fun archiveHabit(habitId: Int) {
@@ -71,11 +71,16 @@ class HabitRepository(
     }
 
     suspend fun saveCount(habitId: Int, dateKey: String, count: Int) {
+        val normalized = count.coerceIn(0, 9)
+        if (normalized == 0) {
+            entryDao.clearEntry(habitId, dateKey)
+            return
+        }
         entryDao.upsertEntry(
             HabitEntryEntity(
                 habitId = habitId,
                 dateKey = dateKey,
-                count = count,
+                count = normalized,
                 updatedAt = System.currentTimeMillis()
             )
         )

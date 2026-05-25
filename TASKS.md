@@ -41,23 +41,28 @@ Habit Beads is now a working Android/Compose prototype on the `ci-validate-build
 - [x] Add Room entities, DAOs, database, provider, and repository
 - [x] Wire tracker UI to Room-backed repository for habits and bead counts
 - [x] Remove legacy SharedPreferences habit/count storage helper after Room wiring
+- [x] Persist selected theme choice through AppPreferences
+- [x] Add explicit loading state while Room initializes
+- [x] Split app theme into AppTheme.kt
+- [x] Split tracker screen and major Compose components into separate files
+- [x] Clean up Room count persistence so decrementing to zero removes the entry instead of storing a zero row
 
 ## Current implementation notes
 
 - Room now owns habit and bead count persistence through HabitRepository.
 - Existing installs from pre-Room builds may start fresh because SharedPreferences data is not migrated into Room yet.
-- Theme choice is currently in-memory only and should be persisted later with preferences.
-- MainActivity.kt is small, and HabitBeadsApp.kt is focused on Compose UI, though it can still be split further into component files later.
-- Zero-count entries may still be stored as zero rows in Room; they behave visually as empty cells but can be compacted in a later DAO cleanup.
+- Theme choice persists through AppPreferences.
+- The app shell/theme, tracker screen, state cards, habit rows, bead cells, and editor dialog are split into smaller Compose files.
+- Zero-count entries are now removed from Room through HabitEntryDao.clearEntry().
 
 ## Next tasks
 
-- [ ] Check latest GitHub Actions build after removing legacy SharedPreferences storage helper
+- [ ] Check latest GitHub Actions build after Phase 9D/10 split and Room cleanup
 - [ ] Download and install latest APK for manual phone testing
 - [ ] Verify Room persistence after close/reopen
-- [ ] Persist selected theme choice
-- [ ] Add explicit loading state instead of reusing empty state while Room loads
-- [ ] Split HabitBeadsApp.kt further into UI component files if needed
+- [ ] Verify selected theme persists after close/reopen
+- [ ] Verify decrement-to-zero persists as empty after close/reopen
+- [ ] Consider migration from old SharedPreferences test builds into Room
 - [ ] Add home-screen widget support after core app is stable
 
 ## Do not add yet
