@@ -29,6 +29,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -53,10 +54,30 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
+private val HabitBeadsColorScheme = lightColorScheme(
+    primary = Color(0xFF277DA1),
+    onPrimary = Color.White,
+    primaryContainer = Color(0xFFD9EEF6),
+    onPrimaryContainer = Color(0xFF12343F),
+    secondary = Color(0xFF2A9D8F),
+    onSecondary = Color.White,
+    secondaryContainer = Color(0xFFDDF4EE),
+    onSecondaryContainer = Color(0xFF123B35),
+    tertiary = Color(0xFFB56576),
+    onTertiary = Color.White,
+    background = Color(0xFFFFFBF6),
+    onBackground = Color(0xFF241F1B),
+    surface = Color(0xFFFFFBF6),
+    onSurface = Color(0xFF241F1B),
+    surfaceVariant = Color(0xFFF1E6DA),
+    onSurfaceVariant = Color(0xFF5A5148),
+    outline = Color(0xFF8C7D70)
+)
+
 @Composable
 fun HabitBeadsApp() {
-    MaterialTheme {
-        Surface(modifier = Modifier.fillMaxSize()) { HabitTrackerScreen() }
+    MaterialTheme(colorScheme = HabitBeadsColorScheme) {
+        Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) { HabitTrackerScreen() }
     }
 }
 
