@@ -33,6 +33,8 @@ Habit Beads is now a working Android/Compose prototype on the `ci-validate-build
 - [x] Add empty state when all habits are deleted
 - [x] Move reset action into Options dialog to reduce main tracker clutter
 - [x] Improve top bar balance by keeping primary action focused on Add habit
+- [x] Add simple Habit Beads launcher icon resources
+- [x] Add branded Compose color scheme
 
 ## Current implementation notes
 
@@ -43,11 +45,10 @@ Habit Beads is now a working Android/Compose prototype on the `ci-validate-build
 
 ## Next tasks
 
-- [ ] Check latest GitHub Actions build after empty-state/options polish
+- [ ] Check latest GitHub Actions build after icon/theme polish
 - [ ] Download and install latest APK for manual phone testing
 - [ ] Gather UI feedback from phone test
 - [ ] Split HabitBeadsApp.kt further into UI component files if needed
-- [ ] Add app icon and visual theme polish
 - [ ] Replace SharedPreferences with Room entities, DAOs, database, repository, and ViewModel
 - [ ] Add home-screen widget support after core app is stable
 
