@@ -15,4 +15,10 @@ interface HabitEntryDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertEntry(entry: HabitEntryEntity)
+
+    @Query("DELETE FROM habit_entries WHERE habitId = :habitId")
+    suspend fun clearEntriesForHabit(habitId: Int)
+
+    @Query("DELETE FROM habit_entries")
+    suspend fun clearEntries()
 }
