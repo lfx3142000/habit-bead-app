@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
@@ -54,7 +55,14 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
-private val HabitBeadsColorScheme = lightColorScheme(
+private enum class AppThemeChoice(val label: String) {
+    Warm("Warm"),
+    Ocean("Ocean"),
+    Forest("Forest"),
+    Grape("Grape")
+}
+
+private val WarmColorScheme = lightColorScheme(
     primary = Color(0xFF277DA1),
     onPrimary = Color.White,
     primaryContainer = Color(0xFFD9EEF6),
@@ -74,15 +82,81 @@ private val HabitBeadsColorScheme = lightColorScheme(
     outline = Color(0xFF8C7D70)
 )
 
+private val OceanColorScheme = lightColorScheme(
+    primary = Color(0xFF176B87),
+    onPrimary = Color.White,
+    primaryContainer = Color(0xFFD4F1F4),
+    onPrimaryContainer = Color(0xFF082F3A),
+    secondary = Color(0xFF2C7DA0),
+    onSecondary = Color.White,
+    secondaryContainer = Color(0xFFE0F4FF),
+    onSecondaryContainer = Color(0xFF16384A),
+    tertiary = Color(0xFF61A5C2),
+    background = Color(0xFFF7FCFF),
+    onBackground = Color(0xFF172126),
+    surface = Color(0xFFF7FCFF),
+    onSurface = Color(0xFF172126),
+    surfaceVariant = Color(0xFFE7F0F4),
+    onSurfaceVariant = Color(0xFF45545B),
+    outline = Color(0xFF71828A)
+)
+
+private val ForestColorScheme = lightColorScheme(
+    primary = Color(0xFF386641),
+    onPrimary = Color.White,
+    primaryContainer = Color(0xFFDDEAD7),
+    onPrimaryContainer = Color(0xFF1B331F),
+    secondary = Color(0xFF6A994E),
+    onSecondary = Color.White,
+    secondaryContainer = Color(0xFFEAF4E4),
+    onSecondaryContainer = Color(0xFF273B1C),
+    tertiary = Color(0xFFA7C957),
+    background = Color(0xFFFFFDF6),
+    onBackground = Color(0xFF202217),
+    surface = Color(0xFFFFFDF6),
+    onSurface = Color(0xFF202217),
+    surfaceVariant = Color(0xFFEEEBDD),
+    onSurfaceVariant = Color(0xFF555244),
+    outline = Color(0xFF817C6B)
+)
+
+private val GrapeColorScheme = lightColorScheme(
+    primary = Color(0xFF6D597A),
+    onPrimary = Color.White,
+    primaryContainer = Color(0xFFEDE3F2),
+    onPrimaryContainer = Color(0xFF33283A),
+    secondary = Color(0xFFB56576),
+    onSecondary = Color.White,
+    secondaryContainer = Color(0xFFF8E2E7),
+    onSecondaryContainer = Color(0xFF4A2830),
+    tertiary = Color(0xFFE56B6F),
+    background = Color(0xFFFFFAFC),
+    onBackground = Color(0xFF251F24),
+    surface = Color(0xFFFFFAFC),
+    onSurface = Color(0xFF251F24),
+    surfaceVariant = Color(0xFFF2E7EC),
+    onSurfaceVariant = Color(0xFF594D54),
+    outline = Color(0xFF897A83)
+)
+
 @Composable
 fun HabitBeadsApp() {
-    MaterialTheme(colorScheme = HabitBeadsColorScheme) {
-        Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) { HabitTrackerScreen() }
+    var themeChoice by remember { mutableStateOf(AppThemeChoice.Warm) }
+    val scheme = when (themeChoice) {
+        AppThemeChoice.Warm -> WarmColorScheme
+        AppThemeChoice.Ocean -> OceanColorScheme
+        AppThemeChoice.Forest -> ForestColorScheme
+        AppThemeChoice.Grape -> GrapeColorScheme
+    }
+    MaterialTheme(colorScheme = scheme) {
+        Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+            HabitTrackerScreen(themeChoice = themeChoice, onThemeChoiceChange = { themeChoice = it })
+        }
     }
 }
 
 @Composable
-private fun HabitTrackerScreen() {
+private fun HabitTrackerScreen(themeChoice: AppThemeChoice, onThemeChoiceChange: (AppThemeChoice) -> Unit) {
     val context = LocalContext.current
     var nextHabitId by remember { mutableIntStateOf(loadNextHabitId(context)) }
     var showAddDialog by remember { mutableStateOf(false) }
@@ -123,7 +197,7 @@ private fun HabitTrackerScreen() {
         saveAll()
     }
 
-    Column(modifier = Modifier.fillMaxSize().padding(12.dp)) {
+    Column(modifier = Modifier.fillMaxSize().statusBarsPadding().padding(start = 10.dp, end = 10.dp, top = 6.dp, bottom = 8.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
@@ -131,7 +205,7 @@ private fun HabitTrackerScreen() {
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text("Habit Beads", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                Text("Tap beads to log. Tap a habit title to edit. Long-press and drag the grip to reorder.", style = MaterialTheme.typography.bodySmall)
+                Text("Tap beads to log. Tap a habit title to edit. Drag the grip to reorder.", style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 OutlinedButton(onClick = { showOptionsDialog = true }) { Text("Options") }
@@ -139,14 +213,14 @@ private fun HabitTrackerScreen() {
             }
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
         if (habits.isEmpty()) {
             EmptyHabitState(onAddHabit = { showAddDialog = true })
         } else {
             Row(modifier = Modifier.fillMaxSize()) {
                 Column(modifier = Modifier.width(HabitColumnWidth)) {
-                    Spacer(modifier = Modifier.height(42.dp))
+                    Spacer(modifier = Modifier.height(38.dp))
                     habits.forEachIndexed { index, habit ->
                         HabitNameCell(
                             habit = habit,
@@ -257,7 +331,17 @@ private fun HabitTrackerScreen() {
             onDismissRequest = { showOptionsDialog = false },
             title = { Text("Options") },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Theme", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        AppThemeChoice.values().forEach { choice ->
+                            if (choice == themeChoice) {
+                                Button(onClick = { onThemeChoiceChange(choice) }) { Text(choice.label) }
+                            } else {
+                                OutlinedButton(onClick = { onThemeChoiceChange(choice) }) { Text(choice.label) }
+                            }
+                        }
+                    }
                     Text("Debug tools are kept here so the daily tracker stays clean.", style = MaterialTheme.typography.bodySmall)
                     OutlinedButton(onClick = {
                         showOptionsDialog = false
@@ -328,7 +412,7 @@ private fun HabitNameCell(
         modifier = Modifier
             .height(CellSize)
             .fillMaxWidth()
-            .padding(end = 8.dp)
+            .padding(end = 6.dp)
             .clip(RoundedCornerShape(12.dp))
             .background(rowBackground)
             .semantics {
@@ -363,10 +447,10 @@ private fun HabitNameCell(
                     },
                     onDrag = { _, dragAmount ->
                         dragDistance += dragAmount.y
-                        if (dragDistance > 38f && canMoveDown) {
+                        if (dragDistance > 32f && canMoveDown) {
                             onMoveDown()
                             dragDistance = 0f
-                        } else if (dragDistance < -38f && canMoveUp) {
+                        } else if (dragDistance < -32f && canMoveUp) {
                             onMoveUp()
                             dragDistance = 0f
                         }
@@ -374,8 +458,8 @@ private fun HabitNameCell(
                 )
             }
         )
-        Box(modifier = Modifier.size(12.dp).clip(CircleShape).background(habit.color))
-        Spacer(modifier = Modifier.width(8.dp))
+        Box(modifier = Modifier.size(10.dp).clip(CircleShape).background(habit.color))
+        Spacer(modifier = Modifier.width(7.dp))
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
             Text(
                 habit.name,
@@ -401,7 +485,7 @@ private fun HabitNameCell(
 private fun DragGrip(habitName: String, modifier: Modifier = Modifier) {
     Column(
         modifier = modifier
-            .width(28.dp)
+            .width(24.dp)
             .height(CellSize)
             .semantics { contentDescription = "Reorder $habitName" },
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -418,7 +502,7 @@ private fun DragGrip(habitName: String, modifier: Modifier = Modifier) {
                     )
                 }
             }
-            Spacer(modifier = Modifier.height(3.dp))
+            Spacer(modifier = Modifier.height(2.dp))
         }
     }
 }
@@ -429,8 +513,8 @@ private fun DayHeader(day: DayInfo) {
     Column(
         modifier = Modifier
             .width(CellSize)
-            .height(42.dp)
-            .padding(3.dp)
+            .height(38.dp)
+            .padding(2.dp)
             .clip(RoundedCornerShape(10.dp))
             .background(background)
             .semantics { contentDescription = if (day.isToday) "Today, ${day.dayLabel} ${day.dateLabel}" else "${day.dayLabel} ${day.dateLabel}" },
@@ -461,7 +545,7 @@ private fun BeadCell(
     Box(
         modifier = Modifier
             .size(CellSize)
-            .padding(3.dp)
+            .padding(2.dp)
             .clip(RoundedCornerShape(12.dp))
             .background(background)
             .semantics {
@@ -476,13 +560,13 @@ private fun BeadCell(
 @Composable
 private fun BeadCluster(count: Int, color: Color) {
     if (count == 0) {
-        Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)))
+        Box(modifier = Modifier.size(7.dp).clip(CircleShape).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)))
         return
     }
     Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
         beadRows(count).forEach { rowCount ->
             Row(horizontalArrangement = Arrangement.Center) {
-                repeat(rowCount) { Box(modifier = Modifier.padding(1.dp).size(7.dp).clip(CircleShape).background(color)) }
+                repeat(rowCount) { Box(modifier = Modifier.padding(1.dp).size(6.dp).clip(CircleShape).background(color)) }
             }
         }
     }
