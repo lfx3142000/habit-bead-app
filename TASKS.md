@@ -46,6 +46,7 @@ Habit Beads is now a working Android/Compose prototype on the `ci-validate-build
 - [x] Split app theme into AppTheme.kt
 - [x] Split tracker screen and major Compose components into separate files
 - [x] Clean up Room count persistence so decrementing to zero removes the entry instead of storing a zero row
+- [x] Add build/test information to Options for manual APK testing
 
 ## Current implementation notes
 
@@ -54,10 +55,11 @@ Habit Beads is now a working Android/Compose prototype on the `ci-validate-build
 - Theme choice persists through AppPreferences.
 - The app shell/theme, tracker screen, state cards, habit rows, bead cells, and editor dialog are split into smaller Compose files.
 - Zero-count entries are now removed from Room through HabitEntryDao.clearEntry().
+- Options now displays the debug build label, local storage note, and restart/persistence test reminder.
 
 ## Next tasks
 
-- [ ] Check latest GitHub Actions build after Phase 9D/10 split and Room cleanup
+- [ ] Check latest GitHub Actions build after Phase 10B manual-test info
 - [ ] Download and install latest APK for manual phone testing
 - [ ] Verify Room persistence after close/reopen
 - [ ] Verify selected theme persists after close/reopen
