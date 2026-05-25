@@ -274,6 +274,12 @@ private fun OptionsDialog(
                         }
                     }
                 }
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text("Build", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                    Text("v0.1.0 debug", style = MaterialTheme.typography.bodySmall)
+                    Text("Storage: local Room database", style = MaterialTheme.typography.bodySmall)
+                    Text("Test: restart app to confirm habits, beads, order, and theme persist.", style = MaterialTheme.typography.bodySmall)
+                }
                 Text("Debug tools are kept here so the daily tracker stays clean.", style = MaterialTheme.typography.bodySmall)
                 OutlinedButton(onClick = onReset) { Text("Reset sample data") }
             }
