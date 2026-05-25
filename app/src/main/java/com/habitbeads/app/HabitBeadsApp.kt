@@ -32,6 +32,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -39,6 +40,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -54,6 +56,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.habitbeads.app.data.DatabaseProvider
+import com.habitbeads.app.data.HabitRepository
+import kotlinx.coroutines.launch
 
 private enum class AppThemeChoice(val label: String) {
     Warm("Warm"),
@@ -158,43 +163,53 @@ fun HabitBeadsApp() {
 @Composable
 private fun HabitTrackerScreen(themeChoice: AppThemeChoice, onThemeChoiceChange: (AppThemeChoice) -> Unit) {
     val context = LocalContext.current
-    var nextHabitId by remember { mutableIntStateOf(loadNextHabitId(context)) }
+    val scope = rememberCoroutineScope()
+    val repository = remember(context) {
+        val database = DatabaseProvider.getDatabase(context)
+        HabitRepository(database.habitDao(), database.habitEntryDao())
+    }
+    var isLoaded by remember { mutableStateOf(false) }
     var showAddDialog by remember { mutableStateOf(false) }
     var showOptionsDialog by remember { mutableStateOf(false) }
     var showResetDialog by remember { mutableStateOf(false) }
     var habitToEdit by remember { mutableStateOf<Habit?>(null) }
     var habitToDelete by remember { mutableStateOf<Habit?>(null) }
-    val habits = remember { mutableStateListOf<Habit>().apply { addAll(loadHabits(context)) } }
-    val counts = remember { mutableStateMapOf<String, Int>().apply { putAll(loadCounts(context)) } }
+    val habits = remember { mutableStateListOf<Habit>() }
+    val counts = remember { mutableStateMapOf<String, Int>() }
     val days = remember { recentDays() }
     val horizontalScrollState = rememberScrollState()
 
-    fun saveAll() {
-        saveHabits(context, habits, nextHabitId)
-        saveCounts(context, counts)
+    suspend fun reloadFromRoom() {
+        habits.clear()
+        habits.addAll(repository.loadHabits())
+        counts.clear()
+        counts.putAll(repository.loadCounts())
+        isLoaded = true
+    }
+
+    LaunchedEffect(repository) {
+        reloadFromRoom()
     }
 
     fun moveHabit(fromIndex: Int, toIndex: Int) {
         if (fromIndex !in habits.indices || toIndex !in habits.indices) return
         val habit = habits.removeAt(fromIndex)
         habits.add(toIndex, habit)
-        saveAll()
+        scope.launch { repository.saveHabitOrder(habits.toList()) }
     }
 
     fun deleteHabit(habit: Habit) {
         habits.removeAll { it.id == habit.id }
         val prefix = "${habit.id}:"
         counts.keys.filter { it.startsWith(prefix) }.forEach { counts.remove(it) }
-        saveAll()
+        scope.launch { repository.archiveHabit(habit.id) }
     }
 
     fun resetAllData() {
-        habits.clear()
-        habits.addAll(defaultHabits())
-        counts.clear()
-        nextHabitId = 4
-        clearHabitStorage(context)
-        saveAll()
+        scope.launch {
+            repository.resetToDefaults()
+            reloadFromRoom()
+        }
     }
 
     Column(modifier = Modifier.fillMaxSize().statusBarsPadding().padding(start = 10.dp, end = 10.dp, top = 6.dp, bottom = 8.dp)) {
@@ -215,7 +230,9 @@ private fun HabitTrackerScreen(themeChoice: AppThemeChoice, onThemeChoiceChange:
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        if (habits.isEmpty()) {
+        if (!isLoaded) {
+            EmptyHabitState(onAddHabit = { })
+        } else if (habits.isEmpty()) {
             EmptyHabitState(onAddHabit = { showAddDialog = true })
         } else {
             Row(modifier = Modifier.fillMaxSize()) {
@@ -249,13 +266,14 @@ private fun HabitTrackerScreen(themeChoice: AppThemeChoice, onThemeChoiceChange:
                                         color = habit.color,
                                         isToday = day.isToday,
                                         onIncrement = {
-                                            counts[key] = (count + 1).coerceAtMost(9)
-                                            saveAll()
+                                            val next = (count + 1).coerceAtMost(9)
+                                            counts[key] = next
+                                            scope.launch { repository.saveCount(habit.id, day.dateKey, next) }
                                         },
                                         onDecrement = {
                                             val next = (count - 1).coerceAtLeast(0)
-                                            if (next == 0) counts.remove(key) else counts[key] = next
-                                            saveAll()
+                                            counts[key] = next
+                                            scope.launch { repository.saveCount(habit.id, day.dateKey, next) }
                                         }
                                     )
                                 }
@@ -276,10 +294,10 @@ private fun HabitTrackerScreen(themeChoice: AppThemeChoice, onThemeChoiceChange:
             onConfirm = { name, subtitle, color ->
                 val trimmed = name.trim()
                 if (trimmed.isNotEmpty()) {
-                    val id = nextHabitId
-                    nextHabitId += 1
-                    habits.add(Habit(id, trimmed, subtitle.trim(), color, target = 1))
-                    saveAll()
+                    scope.launch {
+                        val added = repository.addHabit(trimmed, subtitle.trim(), color, habits.size)
+                        habits.add(added)
+                    }
                 }
                 showAddDialog = false
             },
@@ -298,8 +316,9 @@ private fun HabitTrackerScreen(themeChoice: AppThemeChoice, onThemeChoiceChange:
                 if (trimmed.isNotEmpty()) {
                     val index = habits.indexOfFirst { it.id == habit.id }
                     if (index >= 0) {
-                        habits[index] = habit.copy(name = trimmed, subtitle = subtitle.trim(), color = color)
-                        saveAll()
+                        val updated = habit.copy(name = trimmed, subtitle = subtitle.trim(), color = color)
+                        habits[index] = updated
+                        scope.launch { repository.updateHabit(updated, index) }
                     }
                 }
                 habitToEdit = null
