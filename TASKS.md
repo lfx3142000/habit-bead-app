@@ -15,7 +15,7 @@ Habit Beads is now a working Android/Compose prototype on the `ci-validate-build
 - [x] Square bead cells
 - [x] Tap bead cell to increment count, up to 9
 - [x] Long-press bead cell to decrement count
-- [x] Local persistence for habits, order, colors, subtitles, and bead counts using SharedPreferences
+- [x] Local persistence prototype using SharedPreferences
 - [x] Add habit flow
 - [x] Edit habit by tapping habit title row
 - [x] Add optional subtitle field for habits
@@ -28,7 +28,6 @@ Habit Beads is now a working Android/Compose prototype on the `ci-validate-build
 - [x] Reduce MainActivity.kt to app entry point only
 - [x] Split models/constants into Models.kt
 - [x] Split date helper into DateHelpers.kt
-- [x] Split SharedPreferences storage into HabitStorage.kt
 - [x] Add basic accessibility descriptions for habit rows, drag grips, day headers, bead cells, and color choices
 - [x] Add empty state when all habits are deleted
 - [x] Move reset action into Options dialog to reduce main tracker clutter
@@ -41,22 +40,23 @@ Habit Beads is now a working Android/Compose prototype on the `ci-validate-build
 - [x] Add Room dependencies and KSP
 - [x] Add Room entities, DAOs, database, provider, and repository
 - [x] Wire tracker UI to Room-backed repository for habits and bead counts
+- [x] Remove legacy SharedPreferences habit/count storage helper after Room wiring
 
 ## Current implementation notes
 
-- Habit and bead count storage is being migrated from SharedPreferences to Room.
-- Room now owns new habit/count persistence through the repository.
-- Existing SharedPreferences helper files remain in the repo for now but are no longer the intended storage path for the tracker UI.
+- Room now owns habit and bead count persistence through HabitRepository.
+- Existing installs from pre-Room builds may start fresh because SharedPreferences data is not migrated into Room yet.
 - Theme choice is currently in-memory only and should be persisted later with preferences.
-- MainActivity.kt is now small, and HabitBeadsApp.kt is focused on Compose UI, though it can still be split further into component files later.
+- MainActivity.kt is small, and HabitBeadsApp.kt is focused on Compose UI, though it can still be split further into component files later.
+- Zero-count entries may still be stored as zero rows in Room; they behave visually as empty cells but can be compacted in a later DAO cleanup.
 
 ## Next tasks
 
-- [ ] Check latest GitHub Actions build after Room migration wiring
-- [ ] Fix any Room/KSP compile issues
+- [ ] Check latest GitHub Actions build after removing legacy SharedPreferences storage helper
 - [ ] Download and install latest APK for manual phone testing
 - [ ] Verify Room persistence after close/reopen
 - [ ] Persist selected theme choice
+- [ ] Add explicit loading state instead of reusing empty state while Room loads
 - [ ] Split HabitBeadsApp.kt further into UI component files if needed
 - [ ] Add home-screen widget support after core app is stable
 
