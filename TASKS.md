@@ -35,6 +35,9 @@ Habit Beads is now a working Android/Compose prototype on the `ci-validate-build
 - [x] Improve top bar balance by keeping primary action focused on Add habit
 - [x] Add simple Habit Beads launcher icon resources
 - [x] Add branded Compose color scheme
+- [x] Compact grid layout based on phone screenshot feedback
+- [x] Add status bar safe top padding so the title is not cut off
+- [x] Add selectable color themes in Options: Warm, Ocean, Forest, and Grape
 
 ## Current implementation notes
 
@@ -42,12 +45,14 @@ Habit Beads is now a working Android/Compose prototype on the `ci-validate-build
 - Habit storage supports the old 4-field saved format and the new 5-field title/subtitle format.
 - Room/database migration is intentionally deferred until the UI behavior is stable.
 - MainActivity.kt is now small, and HabitBeadsApp.kt is now focused on Compose UI, though it can still be split further into component files later.
+- Theme choice is currently in-memory only and should be persisted later with preferences.
 
 ## Next tasks
 
-- [ ] Check latest GitHub Actions build after icon/theme polish
+- [ ] Check latest GitHub Actions build after compact layout/theme options
 - [ ] Download and install latest APK for manual phone testing
 - [ ] Gather UI feedback from phone test
+- [ ] Persist selected theme choice
 - [ ] Split HabitBeadsApp.kt further into UI component files if needed
 - [ ] Replace SharedPreferences with Room entities, DAOs, database, repository, and ViewModel
 - [ ] Add home-screen widget support after core app is stable
