@@ -19,4 +19,10 @@ interface HabitDao {
 
     @Update
     suspend fun updateHabit(habit: HabitEntity)
+
+    @Query("UPDATE habits SET isArchived = 1, updatedAt = :updatedAt WHERE id = :id")
+    suspend fun archiveHabit(id: Int, updatedAt: Long)
+
+    @Query("DELETE FROM habits")
+    suspend fun clearHabits()
 }
